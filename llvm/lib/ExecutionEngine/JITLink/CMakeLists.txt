@@ -11,7 +11,8 @@ add_llvm_component_library(LLVMJITLink
   #elf
   ELF.cpp
   ELF_x86_64.cpp
-
+  #generic x86
+  x86GOTAndStubsBuilder.cpp
   ADDITIONAL_HEADER_DIRS
   ${LLVM_MAIN_INCLUDE_DIR}/llvm/ExecutionEngine/JITLink
 
