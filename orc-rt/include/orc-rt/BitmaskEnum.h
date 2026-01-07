@@ -117,7 +117,8 @@ constexpr std::underlying_type_t<E> bitmask_enum_to_underlying(E Val) noexcept {
 
 template <typename E, typename _ = std::enable_if_t<is_bitmask_enum_v<E>>>
 struct bitmask_enum_num_bits {
-  static constexpr int value = bit_width(largest_bitmask_enum_bit<E>::value);
+  static constexpr int value =
+      orc_rt::bit_width_constexpr(largest_bitmask_enum_bit<E>::value);
 };
 
 template <typename E>

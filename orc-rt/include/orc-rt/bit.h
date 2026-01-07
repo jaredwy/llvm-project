@@ -48,6 +48,8 @@
 #endif
 #endif
 
+#include "Compiler.h"
+
 namespace orc_rt {
 
 enum class endian {
@@ -123,9 +125,49 @@ template <typename T, typename _ = std::enable_if_t<std::is_unsigned_v<T>>>
   return ZeroBits;
 }
 
-template <typename T, typename _ = std::enable_if_t<std::is_unsigned_v<T>>>
-[[nodiscard]] constexpr int bit_width(T x) noexcept {
-  return std::numeric_limits<T>::digits - countl_zero(x);
+/// Returns the number of bits needed to represent Value if Value is nonzero.
+/// Returns 0 otherwise.
+///
+/// Ex. bit_width(5) == 3.
+template <typename T> [[nodiscard]] int bit_width(T Value) {
+  static_assert(std::is_unsigned_v<T>,
+                "Only unsigned integral types are allowed.");
+  return std::numeric_limits<T>::digits - orc_rt::countl_zero(Value);
+}
+
+/// Returns the number of bits needed to represent Value if Value is nonzero.
+/// Returns 0 otherwise.
+///
+/// A constexpr version of bit_width.
+///
+/// Ex. bit_width_constexpr(5) == 3.
+template <typename T> [[nodiscard]] constexpr int bit_width_constexpr(T Value) {
+  static_assert(std::is_unsigned_v<T>,
+                "Only unsigned integral types are allowed.");
+  int Width = 0;
+  while (Value > 0) {
+    Value >>= 1;
+    ++Width;
+  }
+  return Width;
+}
+
+template <typename T, typename = std::enable_if_t<std::is_unsigned_v<T>>>
+[[nodiscard]] constexpr inline bool has_single_bit(T Value) noexcept {
+  return (Value != 0) && ((Value & (Value - 1)) == 0);
+}
+
+template <typename T, typename = std::enable_if_t<std::is_unsigned_v<T>>>
+[[nodiscard]] constexpr T rotl(T V, int R) {
+  constexpr unsigned N = std::numeric_limits<T>::digits;
+
+  static_assert(has_single_bit(N), "& (N - 1) is only valid for powers of two");
+  R = R & (N - 1);
+
+  if (R == 0)
+    return V;
+
+  return (V << R) | (V >> (N - R));
 }
 
 } // namespace orc_rt
