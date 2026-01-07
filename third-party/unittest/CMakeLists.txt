@@ -14,12 +14,6 @@
 set(LLVM_SUBPROJECT_TITLE "Third-Party/Google Test")
 
 if(LLVM_RUNTIMES_BUILD)
-  # This instance of GTest is use for unittests for the runtime libraries. It
-  # must not link to LLVMSupport (used for llvm::raw_ostream and llvm::cl
-  # support) of the host build: It may be a different architecture and/or
-  # using a different C++ ABI such as libcxx/libstdc++.
-  set(GTEST_LLVM_COMPONENTS "")
-
   # We cannot use llvm_gtest for the target; it would clash with
   # find_package(LLVM) with LLVM_EXPORT_GTEST=ON. Instead, we define an alias
   # default_gtest that points to llvm_gtest in the LLVM build and
@@ -29,14 +23,17 @@ if(LLVM_RUNTIMES_BUILD)
   # Override locally; never install the runtimes-GTest.
   set(LLVM_INSTALL_GTEST OFF)
 
-  # Build the library containing main() so unittests need less boilerplate.
-  # UnitTestMain/TestMain.cpp always needs LLVMSupport, use GTest's original
-  # main when unavailable.
-  set(gtest_main_src googletest/src/gtest_main.cc)
 else()
   set(GTEST_LLVM_COMPONENTS "Support")
   set(gtest_name "llvm_gtest")
   set(gtest_main_src UnitTestMain/TestMain.cpp)
+endif()
+if(LLVM_RUNTIMES_BUILD OR LLVM_USE_GMAIN)
+  # Build the library containing main() so unittests need less boilerplate.
+  # UnitTestMain/TestMain.cpp always needs LLVMSupport, use GTest's original
+  # main when unavailable.
+  set(gtest_main_src googletest/src/gtest_main.cc)
+  set(GTEST_LLVM_COMPONENTS "")
 endif()
 
 if(WIN32)
@@ -107,7 +104,7 @@ target_include_directories("${gtest_name}"
   PRIVATE googletest googlemock
   )
 
-if(LLVM_RUNTIMES_BUILD)
+if(LLVM_RUNTIMES_BUILD OR LLVM_USE_GMAIN)
   target_compile_definitions("${gtest_name}" PUBLIC GTEST_NO_LLVM_SUPPORT=1)
 else()
   # When used from the buildtree, also force use of buildtree LLVM headers,
@@ -120,7 +117,6 @@ else()
            $<BUILD_INTERFACE:${LLVM_BINARY_DIR}/include>
     )
 endif()
-
 
 add_llvm_library("${gtest_name}_main"
   ${gtest_main_src}

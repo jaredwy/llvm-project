@@ -1,6 +1,6 @@
 # Keep track if we have all dependencies.
 set(ORC_RT_LLVM_TOOLS_AVAILABLE TRUE)
-
+set(ORC_RT_LLVM_TOOLS_DIR CACHE PATH "Path to folder containing not and filecheck")
 if (NOT DEFINED ORC_RT_LLVM_TOOLS_DIR AND DEFINED LLVM_BINARY_DIR)
   cmake_path(APPEND ORC_RT_LLVM_TOOLS_DIR "${LLVM_BINARY_DIR}" "bin")
 endif()
