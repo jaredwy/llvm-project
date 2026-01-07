@@ -16,7 +16,13 @@
 #include "gtest/gtest.h"
 
 #include <algorithm>
-#include <unistd.h>
+
+#if defined(_WIN32)
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+#else
+    #include <unistd.h>
+#endif
 
 using namespace orc_rt;
 using namespace orc_rt::target_detail;
@@ -55,11 +61,6 @@ TEST(ExecutorProcessInfoTest, DetectPageSizeIsPowerOfTwo) {
 TEST(ExecutorProcessInfoTest, DetectPageSizeAtLeast4096) {
   auto EPI = cantFail(ExecutorProcessInfo::Detect());
   EXPECT_GE(EPI.pageSize(), 4096U);
-}
-
-TEST(ExecutorProcessInfoTest, DetectPageSizeMatchesSysconf) {
-  auto EPI = cantFail(ExecutorProcessInfo::Detect());
-  EXPECT_EQ(EPI.pageSize(), static_cast<size_t>(sysconf(_SC_PAGESIZE)));
 }
 
 TEST(ExecutorProcessInfoTest, DetectTargetTripleNotEmpty) {

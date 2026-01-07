@@ -9,7 +9,15 @@
 #include "orc-rt/ExecutorProcessInfo.h"
 
 namespace orc_rt {
-
-std::string ExecutorProcessInfo::detectTargetTriple() noexcept { return {}; }
+    //TODO: the dylib stuff only supports 64 for now, so we just hardcode.
+    std::string ExecutorProcessInfo::detectTargetTriple() noexcept {
+    #if defined(_M_X64)
+      return "x86_64-pc-windows-msvc";
+    #elif defined(_M_ARM64)
+      return "aarch64-pc-windows-msvc";
+    #else
+    #error "Unsupported Windows architecture"
+    #endif
+    }
 
 } // namespace orc_rt

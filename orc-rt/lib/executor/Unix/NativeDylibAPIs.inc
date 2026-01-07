@@ -16,37 +16,45 @@
 
 namespace {
 
-inline void *hostOSGetGlobalLookupHandle() { return RTLD_DEFAULT; }
+using DylibHandle = orc_rt::NativeDylibManager::DylibHandle;
+using SymbolLookupResult =
+        orc_rt::NativeDylibManager::SymbolLookupResult;
 
-orc_rt::Expected<void *> hostOSLoadLibrary(const std::string &Path) {
-  assert(!Path.empty() && "hostOSLoadLibray doesn't support empty paths");
-  void *H = dlopen(Path.c_str(), RTLD_LAZY | RTLD_LOCAL);
-  if (H == nullptr) {
+orc_rt::Expected<orc_rt::NativeDylibManager::DylibHandle>
+hostOSLoadLibrary(const std::string &Path) {
+  assert(!Path.empty() && "hostOSLoadLibrary doesn't support empty paths");
+
+  void *Handle = dlopen(Path.c_str(), RTLD_LAZY | RTLD_LOCAL);
+  if (!Handle) {
     std::ostringstream ErrMsg;
     ErrMsg << "error loading \"" << Path << "\": " << dlerror();
     return orc_rt::make_error<orc_rt::StringError>(ErrMsg.str());
   }
 
-  return H;
+  return orc_rt::NativeDylibManager::DylibHandle{
+      orc_rt::NativeDylibManager::DylibHandle::Kind::Library, Handle};
 }
 
-orc_rt::Error hostOSUnloadLibrary(void *Handle) {
-  if (dlclose(Handle) != 0)
+orc_rt::Error
+hostOSUnloadLibrary(const orc_rt::NativeDylibManager::DylibHandle &Handle) {
+  assert(Handle.K == orc_rt::NativeDylibManager::DylibHandle::Kind::Library &&
+         "global dylib handle must not be unloaded");
+  assert(Handle.LibraryHandle && "invalid library handle");
+
+  if (dlclose(Handle.LibraryHandle) != 0)
     return orc_rt::make_error<orc_rt::StringError>(
         (std::ostringstream()
-         << "error unloading " << Handle << ": " << dlerror())
+         << "error unloading " << Handle.LibraryHandle << ": " << dlerror())
             .str());
+
   return orc_rt::Error::success();
 }
 
-std::vector<std::optional<void *>>
-hostOSLibraryLookup(void *Handle, const std::vector<std::string> &Names) {
-  std::vector<std::optional<void *>> Result;
+NativeDylibManager::SymbolLookupResult
+hostOSLookup(void *Handle, const std::vector<std::string> &Names) {
+  NativeDylibManager::SymbolLookupResult Result;
   Result.reserve(Names.size());
-  // Reset dlerror so we can distinguish "dlsym returned null because the
-  // symbol is present at address 0" from "dlsym returned null because the
-  // symbol isn't in the library" via per-iteration dlerror() checks.
-  dlerror();
+
   for (const auto &Name : Names) {
 #if defined(__APPLE__)
     if (Name.empty() || Name[0] != '_') {
@@ -56,7 +64,9 @@ hostOSLibraryLookup(void *Handle, const std::vector<std::string> &Names) {
     const char *LookupName = Name.c_str() + 1;
 #else
     const char *LookupName = Name.c_str();
-#endif // defined(__APPLE__)
+#endif
+
+    dlerror();
 
     if (void *Addr = dlsym(Handle, LookupName))
       Result.push_back(Addr);
@@ -65,7 +75,22 @@ hostOSLibraryLookup(void *Handle, const std::vector<std::string> &Names) {
     else
       Result.push_back(std::nullopt);
   }
+
   return Result;
 }
 
+NativeDylibManager::SymbolLookupResult
+hostOSLibraryLookup(const NativeDylibManager::DylibHandle &Handle,
+                    const std::vector<std::string> &Names) {
+  assert(Handle.K == NativeDylibManager::DylibHandle::Kind::Library &&
+         "expected library dylib handle");
+  assert(Handle.LibraryHandle && "invalid library handle");
+
+  return hostOSLookup(Handle.LibraryHandle, Names);
+}
+
+NativeDylibManager::SymbolLookupResult
+hostOSGlobalLookup(const std::vector<std::string> &Names) {
+  return hostOSLookup(RTLD_DEFAULT, Names);
+}
 } // namespace

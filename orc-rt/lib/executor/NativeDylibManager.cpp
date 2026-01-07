@@ -17,6 +17,8 @@
 
 #if defined(__APPLE__) || defined(__linux__)
 #include "Unix/NativeDylibAPIs.inc"
+#elif defined(_WIN32) && defined(_M_X64)
+#include "Win/NativeDylibAPIs.inc"
 #else
 #error "Target OS dylib APIs unsupported"
 #endif
@@ -44,39 +46,64 @@ NativeDylibManager::Create(Session &S, SimpleSymbolTable &ST,
   return std::move(Instance);
 }
 
-void NativeDylibManager::load(OnLoadCompleteFn &&OnComplete, std::string Path) {
-  // Empty path -> global handle; no shutdown callback (RTLD_DEFAULT
-  // mustn't be dlclose'd).
-  if (Path.empty())
-    return OnComplete(hostOSGetGlobalLookupHandle());
+void NativeDylibManager::load(OnLoadCompleteFn &&OnComplete,
+                              std::string Path) {
+  // Empty path -> global lookup handle; it is not associated with a loaded
+  // library and must not be unloaded.
+  if (Path.empty()) {
+    static DylibHandle GlobalHandle{DylibHandle::Kind::Global};
+    return OnComplete(static_cast<void *>(&GlobalHandle));
+  }
 
   auto H = hostOSLoadLibrary(Path);
   if (!H)
     return OnComplete(H.takeError());
 
+  auto Handle = std::make_unique<DylibHandle>(std::move(*H));
+
+  DylibHandle *Dylib = Handle.get();
+  assert(Dylib && "failed to create dylib handle");
+  if (!Dylib)
+    return OnComplete(
+        make_error<StringError>("failed to create dylib handle"));
+
   // Capture S by reference, rather than this, so that the callback remains
   // valid even if the NativeDylibManager is destroyed prior to shutdown.
-  S.addOnShutdown([&S = this->S, Handle = *H]() {
-    if (auto Err = hostOSUnloadLibrary(Handle))
-      S.reportError(std::move(Err));
-  });
-  OnComplete(std::move(H));
+  S.addOnShutdown(
+      [&S = this->S, Handle = std::move(Handle)]() mutable {
+        DylibHandle *Dylib = Handle.get();
+        assert(Dylib && "dylib handle unexpectedly null");
+        if (!Dylib)
+          return;
+
+        assert(Dylib->K == DylibHandle::Kind::Library &&
+               "global dylib handle must not be unloaded");
+
+        if (auto Err = hostOSUnloadLibrary(*Dylib))
+          S.reportError(std::move(Err));
+      });
+
+  OnComplete(static_cast<void *>(Dylib));
 }
 
 void NativeDylibManager::lookup(OnLookupCompleteFn &&OnLookupComplete,
                                 void *Handle, SymbolLookupSet Symbols) {
+  DylibHandle *Dylib = static_cast<DylibHandle *>(Handle);
+
+  assert(Dylib && "invalid dylib handle");
+  if (!Dylib)
+    return;
+
   std::vector<std::string> Names;
   Names.reserve(Symbols.size());
   for (auto &S : Symbols)
     Names.push_back(std::move(S.first));
 
-  auto Addrs = hostOSLibraryLookup(Handle, Names);
+  auto Addrs =
+      Dylib->K == DylibHandle::Kind::Global
+          ? hostOSGlobalLookup(Names)
+          : hostOSLibraryLookup(*Dylib, Names);
 
-  // Convert weak-missing entries (empty optional from hostOSLibraryLookup)
-  // to a present zero address. This matches the resolve semantics of
-  // llvm::orc::rt_bootstrap::SimpleExecutorDylibManager: an empty optional
-  // in the result signals a missing required symbol, while a missing
-  // weakly-referenced symbol is reported as a zero address.
   for (size_t I = 0, E = Symbols.size(); I != E; ++I)
     if (!Addrs[I] && Symbols[I].second == WeaklyReferencedSymbol)
       Addrs[I] = nullptr;

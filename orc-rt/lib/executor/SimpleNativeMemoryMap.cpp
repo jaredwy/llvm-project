@@ -21,6 +21,8 @@
 
 #if defined(__APPLE__) || defined(__linux__)
 #include "Unix/NativeMemoryAPIs.inc"
+#elif defined(_WIN32) && defined(_M_X64) // unsure on clang_cl at this time
+#include "Win/NativeMemoryAPIs.inc"
 #else
 #error "Target OS memory APIs unsupported"
 #endif

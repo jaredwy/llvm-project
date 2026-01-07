@@ -13,7 +13,6 @@ set(ORC_RT_SOURCES
   Session.cpp
   SimpleNativeMemoryMap.cpp
   SimpleSymbolTable.cpp
-  StandaloneMachOUnwindInfoRegistrar.cpp
   ThreadPoolRunner.cpp
   sps-ci/AllSPSCI.cpp
   sps-ci/CallSPSCI.cpp
@@ -21,7 +20,6 @@ set(ORC_RT_SOURCES
   sps-ci/MemoryAccessSPSCI.cpp
   sps-ci/NativeDylibManagerSPSCI.cpp
   sps-ci/SimpleNativeMemoryMapSPSCI.cpp
-  sps-ci/StandaloneMachOUnwindInfoRegistrarSPSCI.cpp
   )
 
 
@@ -36,6 +34,8 @@ endif()
 set(ORC_RT_DARWIN_SOURCES
   darwin/CPUFeatures.cpp
   darwin/TargetTriple.cpp
+  StandaloneMachOUnwindInfoRegistrar.cpp
+  sps-ci/StandaloneMachOUnwindInfoRegistrarSPSCI.cpp
 )
 
 set(ORC_RT_LINUX_SOURCES
@@ -48,17 +48,27 @@ set(ORC_RT_WINDOWS_SOURCES
   windows/TargetTriple.cpp
 )
 
+# todo: rename unix to posix.
+set(ORC_RT_POSIX_SOURCES
+    Unix/ExecutorProcessInfo.cpp
+)
+
+if(UNIX)
+  list(APPEND ORC_RT_SOURCES ${ORC_RT_POSIX_SOURCES})
+endif()
+
 if (APPLE)
     list(APPEND ORC_RT_SOURCES ${ORC_RT_DARWIN_SOURCES})
 elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
     list(APPEND ORC_RT_SOURCES ${ORC_RT_LINUX_SOURCES})
-  elseif (WIN32)
+elseif (WIN32)
     list(APPEND ORC_RT_SOURCES ${ORC_RT_WINDOWS_SOURCES})
-  else()
+else(NOT UNIX)
     message(WARNING
       "orc-rt: no platform implementation for ${CMAKE_SYSTEM_NAME}; "
       "Add an orc-rt/lib/executor/<platform>/ directory")
 endif()
+
 
 add_library(orc-rt-executor STATIC ${ORC_RT_SOURCES})
 

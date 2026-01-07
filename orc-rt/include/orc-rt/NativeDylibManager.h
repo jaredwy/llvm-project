@@ -17,6 +17,8 @@
 #include "orc-rt/Service.h"
 #include "orc-rt/sps-ci/NativeDylibManagerSPSCI.h"
 
+#include <optional>
+
 namespace orc_rt {
 
 class Session;
@@ -29,8 +31,18 @@ class Session;
 class NativeDylibManager : public Service {
 public:
   enum LookupFlags { RequiredSymbol, WeaklyReferencedSymbol };
-  using SymbolLookupSet = std::vector<std::pair<std::string, LookupFlags>>;
 
+  struct DylibHandle {
+    enum class Kind {
+      Global,
+      Library,
+    };
+
+    Kind K;
+    void *LibraryHandle = nullptr;
+  };
+  using SymbolLookupSet = std::vector<std::pair<std::string, LookupFlags>>;
+  using SymbolLookupResult = std::vector<std::optional<void *>>;
   /// Create a NativeDylibManager, adding associated symbols to the given
   /// SimpleSymbolTable (typically the BootstrapInfo table).
   static Expected<std::unique_ptr<NativeDylibManager>>

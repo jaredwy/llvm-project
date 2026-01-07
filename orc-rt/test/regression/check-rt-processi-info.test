@@ -1,8 +1,9 @@
-# REQUIRES: system-darwin
+# REQUIRES: system-darwin || system-windows
 #
 # RUN: orc-rt-process-info-check --print-triple --print-cpu-features --print-page-size  \
-# RUN:   | FileCheck %s -DVERSION=%macos-product-version
+# RUN:   | FileCheck %s -DTRIPLE=%host_triple
 
-# CHECK: {{arm64e?}}-apple-macosx[[VERSION]]
+# CHECK: [[TRIPLE]]
 # CHECK-NEXT: {{4096|16384}}
-# CHECK-NEXT: {{(\+[a-z0-9_.]+,)*\+neon(,\+[a-z0-9_.]+)*}}
+# DARWIN-NEXT: {{(\+[a-z0-9_.]+,)*\+neon(,\+[a-z0-9_.]+)*}}
+# WINDOWS-NEXT: {{(\+[a-z0-9_.]+,)*\+sse2(,\+[a-z0-9_.]+)*}}

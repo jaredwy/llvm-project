@@ -40,8 +40,12 @@
 
 /* ORC_RT_C_ABI is the export/visibility macro used to mark symbols declared
    in orc-rt-c as exported when built as a shared library. */
-#if defined(__has_attribute) && __has_attribute(visibility)
+#if defined(_WIN32)
+#define ORC_RT_C_ABI __declspec(dllexport)
+#elif defined(__has_attribute)
+#if __has_attribute(visibility)
 #define ORC_RT_C_ABI __attribute__((visibility("default")))
+#endif
 #endif
 
 #if !defined(ORC_RT_C_ABI)
