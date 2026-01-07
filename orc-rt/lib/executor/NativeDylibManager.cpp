@@ -17,6 +17,8 @@
 
 #if defined(__APPLE__) || defined(__linux__)
 #include "Unix/NativeDylibAPIs.inc"
+#elif defined(_WIN32) && defined(_M_X64)
+#include "Win/NativeDylibAPIs.inc"
 #else
 #error "Target OS dylib APIs unsupported"
 #endif

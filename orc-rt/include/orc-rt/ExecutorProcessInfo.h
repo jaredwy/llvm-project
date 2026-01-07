@@ -55,9 +55,7 @@ public:
 private:
   friend struct ExecutorProcessInfoTestAccess;
 
-  // Storage of string_views is static, so will last the lifetime of the runtime
   static std::vector<std::string_view> detectTargetCPUFeatures();
-
   /// Formats vector of feature names as an SubtargetFeatures valid string, e.g.
   /// "+avx,+avx2".
   static std::string
@@ -65,6 +63,8 @@ private:
 
   static std::string
   makeTargetTriple(std::initializer_list<std::string_view> Components);
+
+  static long getPageSize() noexcept;
 
   std::string Triple;
   size_t PageSize;

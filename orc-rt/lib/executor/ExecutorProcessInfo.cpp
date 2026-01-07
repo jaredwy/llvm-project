@@ -17,7 +17,6 @@
 
 #include <cassert>
 #include <cstring>
-#include <unistd.h>
 
 namespace orc_rt {
 
@@ -51,8 +50,7 @@ std::string ExecutorProcessInfo::formatCPUFeatures(
 }
 
 std::string ExecutorProcessInfo::detectCPUFeatures() noexcept {
-  // Detection involves system calls, so cache the result. Function-local
-  // static initialization is thread safe.
+  // Detection involves system calls, so cache the result.
   static const std::string Cache = formatCPUFeatures(detectTargetCPUFeatures());
   return Cache;
 }
@@ -72,13 +70,16 @@ std::string ExecutorProcessInfo::makeTargetTriple(
 }
 
 Expected<size_t> ExecutorProcessInfo::detectPageSize() noexcept {
-  long PageSize = sysconf(_SC_PAGESIZE);
+  const auto PageSize = getPageSize();
+
   if (PageSize == -1)
     return make_error<StringError>(strerror(errno));
+
   if (!isPowerOf2(PageSize))
     return make_error<StringError>("reported page size " +
                                    std::to_string(PageSize) +
                                    " is not a power of two");
+
   return static_cast<size_t>(PageSize);
 }
 
